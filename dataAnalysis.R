@@ -54,18 +54,18 @@ dfAST$Invasive.Non.invasive <- as.factor(dfAST$Invasive.Non.invasive)
 dfAST$Year <- as.factor(dfAST$Year)
 
 ## penicillin MIC change
-boxplot(dfAST$PnG ~ dfAST$Year, xlab = "Year", ylab = "Penicillin MIC (µg/mL)")
+boxplot(dfAST$PnG ~ dfAST$Year, xlab = "Year", ylab = "Penicillin MIC (Âµg/mL)")
 boxplot(dfAST$PnG ~ dfAST$Invasive.Non.invasive, xlab = "Type of infection", 
-        ylab = "Penicillin MIC (µg/mL)")
+        ylab = "Penicillin MIC (Âµg/mL)")
 meanPEN <- summarySE(data = dfAST, measurevar = "PnG", groupvars = "Year", na.rm = T)
 kruskal.test(PnG ~ Year, data = dfAST)
 wilcox.test(PnG ~ Invasive.Non.invasive, data = dfAST)
 summary(dfAST$PnG)
 
 ##CEFTRIAXONE MIC MEAN, MEDIAN AND IQR
-boxplot(dfAST$Ceft ~ dfAST$Year, xlab = "Year", ylab = "Ceftriaxone MIC (µg/mL)")
+boxplot(dfAST$Ceft ~ dfAST$Year, xlab = "Year", ylab = "Ceftriaxone MIC (Âµg/mL)")
 boxplot(dfAST$Ceft ~ dfAST$Invasive.Non.invasive, xlab = "Type of infection", 
-        ylab = "Ceftriaxone MIC (µg/mL)")
+        ylab = "Ceftriaxone MIC (Âµg/mL)")
 meanCTX <- summarySE(data = dfAST, measurevar = "Ceft", groupvars = "Year", na.rm = T)
 kruskal.test(Ceft ~ Year, data = dfAST)
 wilcox.test(Ceft ~ Invasive.Non.invasive, data = dfAST)
@@ -153,4 +153,13 @@ gpsc_pcv <- gpsc_pcv %>%
   filter(sum(Frequency) >= 5)
 ggplot(data=gpsc_pcv, aes(x=GPSC, y=Frequency, fill=PCV13_type))+
   geom_bar(stat = "identity")
+
+## gpsc pre and post vacc
+
+gpsc_prevacc <- data.frame(table(select(df, c("PreVacc", "Strain"))))
+gpsc_prevacc <- gpsc_prevacc[gpsc_prevacc$Freq >= 2, ]
+ggplot(data = gpsc_prevacc, aes(x=Strain, y= Freq, fill = PreVacc)) + 
+  geom_bar(stat = "identity") + 
+  ylab("Frequency") + guides(fill=guide_legend(title="Prevaccine period"))
+
 
