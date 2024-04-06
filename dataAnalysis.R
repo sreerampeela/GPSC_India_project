@@ -1,10 +1,10 @@
+## ICMR GPSC project data analysis - main file
 library(xlsx)
 library(dplyr)
 library(ggplot2)
 library(reshape2)
 library(tidyr)
 library(ggiraphExtra)
-
 library(vegan)
 library(picante)
 library(knitr)
@@ -23,20 +23,26 @@ hist(df$PATIENT.AGE, ylim = c(0,60), xlab = "Patient Age (years)",
 df$SOURCE.OF.ISOLATE <- as.factor(df$SOURCE.OF.ISOLATE)
 df$Year <- as.factor(df$Year)
 plot(df$Year, ylim = c(0,100), xlab = "year", ylab = "Number of isolates", 
-     main = "Year of sample collection")
+     main = "Isolates collected among study years", cex.axis = 1.25, 
+     cex.names = 1.25, cex.lab = 1.5, cex.main = 2)
 
-df$ageGrp <- cut(df$PATIENT.AGE, breaks = c(0, 5,13,45,60, 100), 
-                 labels = c("Young child", "child", "young adult", "adult", "old adult"))
+df$ageGrp <- cut(df$PATIENT.AGE, breaks = c(0, 5,14,46,60, 100), 
+                 labels = c("<5yrs", "5-13yrs", "14-45yrs", "46-60yrs", ">60yrs"))
 df_age <- data.frame(table(df$ageGrp))
 barplot(df_age$Freq, names.arg = df_age$Var1, xlab = "Age group", 
-        ylab = "Numbe of isolates", ylim = c(0,90))
+        ylab = "Numbe of isolates", ylim = c(0,100), cex.axis = 1.25, 
+        cex.names = 1.25, cex.lab = 1.5, 
+        main = "Number of isolates among different age groups", cex.main = 2)
 
 ############ GPSC types #############
 df$Strain <- as.factor(df$Strain)
-gpscs <- as.data.frame(table(df$Strain))
-ggplot(data = gpscs, aes(x=Freq, y=Var1)) + geom_bar(stat = "identity", 
-                                                     position = "stack") + 
-  labs(x = "Number of isolates", y = "GPSC")
+df$Invasive.Non.invasive <- as.factor(df$Invasive.Non.invasive)
+gpscs <- as.data.frame(table(df$Strain, df$Invasive.Non.invasive))
+colnames(gpscs) <- c("GPSC", "Type_infection", "freq")
+ggplot(data = gpscs, aes(x=freq, y=reorder(GPSC, freq), fill = Type_infection)) + 
+  geom_bar(stat = "identity", position = "stack") + 
+  labs(x = "Number of isolates", y = "GPSC") +
+  theme(text = element_text(size = 20))
 
 # GPSC diversity measures
 diversity(table(df$Invasive.Non.invasive, df$Strain), index = "simpson")
@@ -54,18 +60,18 @@ dfAST$Invasive.Non.invasive <- as.factor(dfAST$Invasive.Non.invasive)
 dfAST$Year <- as.factor(dfAST$Year)
 
 ## penicillin MIC change
-boxplot(dfAST$PnG ~ dfAST$Year, xlab = "Year", ylab = "Penicillin MIC (µg/mL)")
+boxplot(dfAST$PnG ~ dfAST$Year, xlab = "Year", ylab = "Penicillin MIC (�g/mL)")
 boxplot(dfAST$PnG ~ dfAST$Invasive.Non.invasive, xlab = "Type of infection", 
-        ylab = "Penicillin MIC (µg/mL)")
+        ylab = "Penicillin MIC (�g/mL)")
 meanPEN <- summarySE(data = dfAST, measurevar = "PnG", groupvars = "Year", na.rm = T)
 kruskal.test(PnG ~ Year, data = dfAST)
 wilcox.test(PnG ~ Invasive.Non.invasive, data = dfAST)
 summary(dfAST$PnG)
 
 ##CEFTRIAXONE MIC MEAN, MEDIAN AND IQR
-boxplot(dfAST$Ceft ~ dfAST$Year, xlab = "Year", ylab = "Ceftriaxone MIC (µg/mL)")
+boxplot(dfAST$Ceft ~ dfAST$Year, xlab = "Year", ylab = "Ceftriaxone MIC (�g/mL)")
 boxplot(dfAST$Ceft ~ dfAST$Invasive.Non.invasive, xlab = "Type of infection", 
-        ylab = "Ceftriaxone MIC (µg/mL)")
+        ylab = "Ceftriaxone MIC (�g/mL)")
 meanCTX <- summarySE(data = dfAST, measurevar = "Ceft", groupvars = "Year", na.rm = T)
 kruskal.test(Ceft ~ Year, data = dfAST)
 wilcox.test(Ceft ~ Invasive.Non.invasive, data = dfAST)
@@ -73,8 +79,11 @@ wilcox.test(Ceft ~ Invasive.Non.invasive, data = dfAST)
 ## MDR
 mdr <- data.frame(table(dfAST$Year, dfAST$MDR_YES))
 colnames(mdr) <- c("Year", "MDR", "Freq")
-ggplot(data=mdr, aes(x=Year, y=Freq, fill = MDR)) + geom_bar(stat = "identity")+
-  labs(x="Year", y= "Number of isolates")
+mdr_pros <- mdr %>%
+  filter(Year %in% c("2020", "2021", "2022", "2023"))
+ggplot(data=mdr_pros, aes(x=Year, y=Freq, fill = MDR)) + geom_bar(stat = "identity")+
+  labs(x="Year", y= "Number of isolates") + ylim(0, 100) +
+  theme(text = element_text(size = 20))
 diversity(table(dfAST$MDR_YES, dfAST$Strain), index = "simpson")
 
 #AMR mechanisms
@@ -113,28 +122,30 @@ sero_age <- data.frame(table(df$ageGrp, df$Serotype_wgs))
 colnames(sero_age) <- c("Age_group", "Serotype", "Frequency")
 sero_age$Age_group <- as.factor(sero_age$Age_group)
 
-ggplot(data=sero_age, aes(x=Serotype, y=Frequency, fill=Age_group))+
-  geom_bar(stat = "identity")
+ggplot(data=sero_age, aes(x=Frequency, y=reorder(Serotype, Frequency), fill=Age_group))+
+  geom_bar(stat = "identity",  position = "stack") + 
+  labs(x = "Number of isolates", y = "Serotype") + xlim(0, 60) +
+  theme(text = element_text(size = 20))
 
 chisq.test(df$ageGrp, df$Serotype_wgs)
 
 # serotypes and prevaccine
-sero_prevacc <- data.frame(table(df$PreVacc, df$Serotype_wgs))
-colnames(sero_prevacc) <- c("Prevacc", "Serotype", "Frequency")
+sero_prevacc <- data.frame(table(df$vaccine_era, df$Serotype_wgs))
+colnames(sero_prevacc) <- c("vaccine_era", "Serotype", "Frequency")
 sero_prevacc <- sero_prevacc %>%
   group_by(Serotype) %>%
   filter(sum(Frequency) >= 5)
-ggplot(data=sero_prevacc, aes(x=Serotype, y=Frequency, fill=Prevacc))+
+ggplot(data=sero_prevacc, aes(x=Serotype, y=Frequency, fill=vaccine_era))+
   geom_bar(stat = "identity") + theme(axis.text=element_text(size=14),
                                       axis.title=element_text(size=18))
-fisher.test(df$PreVacc, df$PCV13)
+fisher.test(df$vaccine_era, df$PCV13)
 
 # Invasive and PCV13 coverage
 table(df$Invasive.Non.invasive, df$PCV13)
 
 #MDR and prevacc
-table(df$MDR_YES, df$PreVacc)
-fisher.test(df$MDR_YES, df$PreVacc)
+table(df$MDR_YES, df$vaccine_era)
+fisher.test(df$MDR_YES, df$vaccine_era)
 
 #AMR and serotypes ; from 2020 only
 amr_sero <- select(df, c(6, 17, 19, 21, 24, 26, 30, 32, 34, 36, "Serotype_wgs"))
@@ -153,13 +164,4 @@ gpsc_pcv <- gpsc_pcv %>%
   filter(sum(Frequency) >= 5)
 ggplot(data=gpsc_pcv, aes(x=GPSC, y=Frequency, fill=PCV13_type))+
   geom_bar(stat = "identity")
-
-## gpsc pre and post vacc
-
-gpsc_prevacc <- data.frame(table(select(df, c("PreVacc", "Strain"))))
-gpsc_prevacc <- gpsc_prevacc[gpsc_prevacc$Freq >= 2, ]
-ggplot(data = gpsc_prevacc, aes(x=Strain, y= Freq, fill = PreVacc)) + 
-  geom_bar(stat = "identity") + 
-  ylab("Frequency") + guides(fill=guide_legend(title="Prevaccine period"))
-
 
