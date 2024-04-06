@@ -5,8 +5,7 @@ library(dplyr)
 library(ggplot2)
 library(reshape2)
 library(FSA)
-
-source("./function_script.R")
+library(dunn.test)
 
 commonVFs <- c("cbpD", "cps4A",	"cps4B",	"hysA",	"lytA",	"lytC",	"nanA",	"pavA",
                "pce",	"ply",	"psaA")
@@ -19,11 +18,6 @@ spriteReps <- read.csv("final_cleaned_SPRITE.csv", header = T)
 sprite_clean <- spriteReps %>%
   group_by(Gene) %>%
   filter(length(unique(Upstream)) > 3)
-perform_analysis(resDF = sprite_clean, commonVFs = commonVFs, 
-                 highGPSC = highGPSC, repType = "SPRITE")
-
-gen_plot(repDF = sprite_clean, repType = "SPRITE", commonVFs = commonVFs, 
-         highGPSC = highGPSC)
 
 #RUP
 rupReps <- read.csv("final_cleaned_RUP.csv", header = T)
@@ -31,11 +25,6 @@ rupReps <- read.csv("final_cleaned_RUP.csv", header = T)
 rup_clean <- rupReps %>%
   group_by(Gene) %>%
   filter(length(unique(Upstream)) > 3)
-perform_analysis(resDF = rup_clean, commonVFs = commonVFs, 
-                 highGPSC = highGPSC, repType = "RUP")
-
-gen_plot(repDF = rup_clean, repType = "RUP", commonVFs = commonVFs, 
-         highGPSC = highGPSC)
 
 #boxA
 boxA_Reps <- read.csv("final_cleaned_boxA.csv", header = T)
@@ -43,11 +32,6 @@ boxA_Reps <- read.csv("final_cleaned_boxA.csv", header = T)
 boxA_clean <- boxA_Reps %>%
   group_by(Gene) %>%
   filter(length(unique(Upstream)) > 3) # atleast 3 unique values to be valid
-perform_analysis(resDF = boxA_clean, commonVFs = commonVFs, 
-                 highGPSC = highGPSC, repType = "boxA")
-
-gen_plot(repDF = boxA_clean, repType = "boxA", commonVFs = commonVFs, 
-         highGPSC = highGPSC)
 
 #boxB
 boxB_Reps <- read.csv("final_cleaned_boxB.csv", header = T)
@@ -55,23 +39,13 @@ boxB_Reps <- read.csv("final_cleaned_boxB.csv", header = T)
 boxB_clean <- boxB_Reps %>%
   group_by(Gene) %>%
   filter(length(unique(Upstream)) > 3)
-perform_analysis(resDF = boxB_clean, commonVFs = commonVFs, 
-                 highGPSC = highGPSC, repType = "boxB")
 
-gen_plot(repDF = boxB_clean, repType = "boxB", commonVFs = commonVFs, 
-         highGPSC = highGPSC)
 #boxC
 boxC_Reps <- read.csv("final_cleaned_boxC.csv", header = T)
 
 boxC_clean <- boxC_Reps %>%
   group_by(Gene) %>%
   filter(length(unique(Upstream)) > 3)
-perform_analysis(resDF = boxC_clean, commonVFs = commonVFs, 
-                 highGPSC = highGPSC, repType = "boxC")
-
-gen_plot(repDF = boxC_clean, repType = "boxC", commonVFs = commonVFs, 
-         highGPSC = highGPSC)
-
 
 ## large df
 commonVF_boxA <- boxA_clean %>%
@@ -107,9 +81,10 @@ jip_reps_df$value <- c(commonVF_boxA$Upstream,commonVF_boxB$Upstream,commonVF_bo
 
 jip_reps_df$GPSC <- c(commonVF_boxA$GPSC,commonVF_boxB$GPSC,commonVF_boxC$GPSC,
                        commonVF_rup$GPSC,commonVF_sprite$GPSC) 
-ggplot(data = jip_reps_df, aes(x = repeats, y= value, fill = Gene)) + geom_boxplot() +
-  theme(axis.text.x = element_text(size=16), axis.text.y = element_text(size=16),
-        axis.title = element_text(size = 18), legend.text = element_text(size = 18),
+ggplot(data = jip_reps_df, aes(x = repeats, y= value, fill = Gene)) + 
+  geom_boxplot() + labs(x = "Type of repeat", y = "Number of repeat elements") +
+  theme(axis.text.x = element_text(size=18), axis.text.y = element_text(size=18),
+        axis.title = element_text(size = 20), legend.text = element_text(size = 20),
         legend.title = element_text(size = 20))
 
 ## gpsc SPECIFIC DIFFERENCES
@@ -154,15 +129,29 @@ kruskall_stats_tests <- jip_reps_df %>%
   summarise(pval = kruskal.test(value ~ GPSC)$p.value)
 kruskall_stats_tests["adjP"] <- p.adjust(kruskall_stats_tests$pval)
 
-dunn_test_res <- jip_reps_df %>%
-  group_by(Gene) %>%
+dunn_test_res2 <- jip_reps_df %>%
+  group_by(Gene, repeats) %>%
   summarise(adjpvals = dunn.test(x=value, g = GPSC, method = "bh")$P.adjust,
             comp = dunn.test(x=value, g = GPSC, method = "bh")$comparisons,
             zvals = dunn.test(x=value, g = GPSC, method = "bh")$Z)
-plot(x=dunn_test_res$zvals, y = -log10(dunn_test_res$adjpvals))
-abline(h=-log10(0.05), v = c(-1.96, 1.96))
 
 write.csv(jip_reps_df, file = "JIPMER_2024_vfs_reps.csv", row.names = F)
 
+dunn_test_res2$comp <- as.factor(dunn_test_res2$comp)
+ggplot(data = dunn_test_res2, aes(x=zvals, y=-log10(adjpvals), col = Gene)) + 
+  geom_point(aes(shape =repeats), size = 2, alpha = 0.5)  + 
+  geom_hline(yintercept = -log10(0.05), linetype="dashed", color = "red") + 
+  geom_vline(xintercept = c(1.96, -1.96), linetype="dashed", color = "red") + 
+  facet_wrap(~ comp, scales = "free") +
+  theme(axis.text.x = element_text(size = 14), 
+        axis.text.y = element_text(size = 14),
+        strip.text = element_text(size = 18),
+        legend.text = element_text(size = 16),
+        title = element_text(size = 20),
+        legend.title = element_text(size = 18),
+        axis.title.x = element_text(size = 18),
+        axis.title.y = element_text(size = 18)) +
+  labs(x = "Dunn test Z-values", y = "-log10(adjusted P values)",
+       title = "GPSC specific differences of repeat elements among common virulence genes")
 
 
