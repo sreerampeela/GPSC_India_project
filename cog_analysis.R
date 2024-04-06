@@ -1,3 +1,4 @@
+## COG analysis for three species
 library(xlsx)
 library(reshape2)
 library(ggplot2)
